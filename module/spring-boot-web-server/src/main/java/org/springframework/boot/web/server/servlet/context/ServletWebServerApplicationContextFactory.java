@@ -30,6 +30,35 @@ import org.springframework.core.env.ConfigurableEnvironment;
  * {@link AnnotationConfigServletWebServerApplicationContext} and
  * {@link ServletWebServerApplicationContext}.
  *
+ * <p><b>Servlet Web应用的ApplicationContext创建工厂：</b>
+ * <pre>
+ * 调用时机：
+ * SpringApplication.createApplicationContext() [第579行]
+ *   ↓
+ * applicationContextFactory.create(WebApplicationType.SERVLET)
+ *   ↓
+ * ServletWebServerApplicationContextFactory.create() [第50行]
+ *   ↓
+ * createContext() [第54行]
+ *
+ * 创建的ApplicationContext类型：
+ * - 非AOT环境：AnnotationConfigServletWebServerApplicationContext
+ * - AOT环境：ServletWebServerApplicationContext
+ *
+ * 继承关系：
+ * AnnotationConfigServletWebServerApplicationContext
+ *   → extends ServletWebServerApplicationContext
+ *     → extends GenericWebApplicationContext
+ *       → extends GenericApplicationContext 【关键！继承GenericApplicationContext】
+ *         → extends AbstractApplicationContext
+ *
+ * 为什么使用GenericApplicationContext？
+ * ✅ 支持注解配置（@Configuration、@Component等）
+ * ✅ 不需要多次刷新BeanFactory
+ * ✅ BeanFactory在构造时就创建好
+ * ✅ 性能更优（refresh()时不需要重新创建BeanFactory）
+ * </pre>
+ *
  * @author Phillip Webb
  * @author Andy Wilkinson
  */

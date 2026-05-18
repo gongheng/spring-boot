@@ -33,6 +33,30 @@ import org.springframework.lang.Contract;
  * Default {@link ApplicationContextFactory} implementation that will create an
  * appropriate context for the {@link WebApplicationType}.
  *
+ * <p><b>默认ApplicationContext创建策略：</b>
+ * <pre>
+ * 工作原理：
+ * 1. 使用SpringFactoriesLoader加载所有ApplicationContextFactory实现
+ * 2. 按优先级调用每个factory的create()方法
+ * 3. 返回第一个非null的ApplicationContext
+ *
+ * ApplicationContextFactory实现顺序：
+ * - ServletWebServerApplicationContextFactory (SERVLET类型)
+ * - ReactiveWebServerApplicationContextFactory (REACTIVE类型)
+ * - DefaultApplicationContextFactory.default实现 (兜底)
+ *
+ * 创建的ApplicationContext类型：
+ * - SERVLET: AnnotationConfigServletWebServerApplicationContext
+ * - REACTIVE: AnnotationConfigReactiveWebServerApplicationContext
+ * - NONE（非Web）: AnnotationConfigApplicationContext
+ *
+ * 所有这些ApplicationContext都继承GenericApplicationContext：
+ * ✅ BeanFactory在构造时创建（DefaultListableBeanFactory）
+ * ✅ refresh()时只设置序列化ID，不重新创建BeanFactory
+ * ✅ 支持编程式注册Bean定义
+ * ✅ 适合注解驱动和SpringBoot的自动配置
+ * </pre>
+ *
  * @author Phillip Webb
  */
 class DefaultApplicationContextFactory implements ApplicationContextFactory {

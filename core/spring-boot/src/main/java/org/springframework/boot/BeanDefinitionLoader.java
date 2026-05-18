@@ -124,6 +124,46 @@ class BeanDefinitionLoader {
 
 	/**
 	 * Load the sources into the reader.
+	 *
+	 * <p><b>【在refresh()之前注册主配置类】</b>
+	 *
+	 * <p>这个方法在SpringApplication.prepareContext()阶段被调用（第489行），
+	 * 在refresh()执行之前将主配置类注册到BeanFactory。
+	 *
+	 * <p><b>调用时机：</b>
+	 * <pre>
+	 * SpringApplication.run() 【第304行】
+	 *   ↓
+	 * prepareContext() 【第320行】
+	 *   ↓
+	 * load(context, sources) 【第489行】
+	 *   ↓
+	 * BeanDefinitionLoader.load() 【本方法，第128行】
+	 *   ↓
+	 * annotatedReader.register(source) 【第162行】
+	 *   ↓
+	 * 注册主配置类到BeanFactory
+	 * </pre>
+	 *
+	 * <p><b>对于SpringBoot应用（如TodoApplication）：</b>
+	 * <ul>
+	 * <li>source = TodoApplication.class</li>
+	 * <li>为TodoApplication创建BeanDefinition</li>
+	 * <li>注册到BeanFactory</li>
+	 * <li>这样ConfigurationClassPostProcessor执行时就能找到这个配置类</li>
+	 * </ul>
+	 *
+	 * <p><b>为什么在refresh()之前注册？</b>
+	 * <pre>
+	 * 1. ApplicationContext构造时 → 注册5个内部Bean定义
+	 * 2. prepareContext()时 → 注册1个主配置类Bean定义
+	 *    【这就是本方法的作用】
+	 * 3. refresh()执行时
+	 *    → invokeBeanFactoryPostProcessors()
+	 *      → ConfigurationClassPostProcessor.processConfigBeanDefinitions()
+	 *        → 从这6个Bean定义中找到配置类
+	 *        → 扫描组件，加载更多Bean定义
+	 * </pre>
 	 */
 	void load() {
 		for (Object source : this.sources) {
@@ -159,6 +199,23 @@ class BeanDefinitionLoader {
 			((GroovyBeanDefinitionReader) this.groovyReader).beans(loader.getBeans());
 		}
 		if (isEligible(source)) {
+			// ⭐️ 【关键步骤】注册主配置类到BeanFactory
+			//
+			// 对于SpringBoot应用，这里会注册：
+			// - TodoApplication.class（主配置类，带有@SpringBootApplication注解）
+			//
+			// 调用链：
+			// AnnotatedBeanDefinitionReader.register(TodoApplication.class)
+			//   ↓
+			// registerBean() 【创建BeanDefinition】
+			//   ↓
+			// BeanDefinitionReaderUtils.registerBeanDefinition() 【注册到BeanFactory】
+			//
+			// 这样ConfigurationClassPostProcessor执行时（第389行）就能：
+			// 1. 通过registry.getBeanDefinitionNames()获取到这个Bean定义
+			// 2. 检查它是否是配置类（checkConfigurationClassCandidate）
+			// 3. 如果是配置类，解析它的注解（@SpringBootApplication、@ComponentScan等）
+			// 4. 扫描组件，加载更多Bean定义
 			this.annotatedReader.register(source);
 		}
 	}

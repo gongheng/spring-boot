@@ -48,6 +48,49 @@ import org.springframework.util.ClassUtils;
  * definitions will override ones defined in earlier loaded files. This can be leveraged
  * to deliberately override certain bean definitions through an extra Configuration class.
  *
+ * <p><b>SpringBoot Web应用默认的ApplicationContext实现：</b>
+ * <pre>
+ * 使用场景：
+ * - 传统的SpringBoot Web应用（Servlet栈）
+ * - 使用@SpringBootApplication注解的应用
+ * - 如您的Todo应用就是使用这个ApplicationContext
+ *
+ * 继承关系：
+ * AnnotationConfigServletWebServerApplicationContext
+ *   → extends ServletWebServerApplicationContext
+ *     → extends GenericWebApplicationContext
+ *       → extends GenericApplicationContext 【关键！】
+ *         → extends AbstractApplicationContext
+ *
+ * 关键特性：
+ * 1. 支持注解配置（@Configuration、@Component等）
+ * 2. 支持组件扫描（@ComponentScan）
+ * 3. 内置Web服务器（Tomcat/Jetty/Undertow）
+ * 4. 继承GenericApplicationContext的refreshBeanFactory()实现
+ *    - refresh()时不重新创建BeanFactory
+ *    - 只设置序列化ID
+ *    - BeanFactory在构造函数中就已创建好
+ *
+ * 构造函数：
+ * public AnnotationConfigServletWebServerApplicationContext() {
+ *     this.reader = new AnnotatedBeanDefinitionReader(this);
+ *     this.scanner = new ClassPathBeanDefinitionScanner(this);
+ * }
+ *
+ * 容器刷新流程：
+ * 1. SpringBoot调用：SpringApplication.run() → refreshContext()
+ * 2. 调用：refresh() → AbstractApplicationContext.refresh()
+ * 3. obtainFreshBeanFactory() → refreshBeanFactory()
+ * 4. GenericApplicationContext.refreshBeanFactory()
+ *    - 只设置序列化ID（BeanFactory早已在父类构造函数中创建）
+ * 5. invokeBeanFactoryPostProcessors()
+ *    - ConfigurationClassPostProcessor处理@SpringBootApplication
+ *    - 扫描所有@Component、@Service、@Repository等
+ *    - 注册Bean定义到BeanFactory
+ * 6. finishBeanFactoryInitialization()
+ *    - 实例化所有非懒加载的单例Bean
+ * </pre>
+ *
  * @author Phillip Webb
  * @since 4.0.0
  * @see #register(Class...)

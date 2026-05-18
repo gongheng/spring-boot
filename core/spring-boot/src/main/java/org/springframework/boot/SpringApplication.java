@@ -298,6 +298,67 @@ public class SpringApplication {
 	/**
 	 * Run the Spring application, creating and refreshing a new
 	 * {@link ApplicationContext}.
+	 *
+	 * <p>SpringBoot容器启动的完整调用链路：
+	 * <pre>
+	 * 1️⃣ 用户代码调用
+	 *    SpringApplication.run(TodoApplication.class, args)
+	 *         ↓
+	 * 2️⃣ 创建BootstrapContext
+	 *    createBootstrapContext()
+	 *         ↓
+	 * 3️⃣ 准备Environment
+	 *    prepareEnvironment() - 读取application.yml等配置
+	 *         ↓
+	 * 4️⃣ 创建ApplicationContext 【关键步骤】
+	 *    createApplicationContext() [第318行]
+	 *         ↓
+	 *    applicationContextFactory.create(WebApplicationType.SERVLET)
+	 *         ↓
+	 *    ServletWebServerApplicationContextFactory.createContext()
+	 *         ↓
+	 *    new AnnotationConfigServletWebServerApplicationContext()
+	 *         ↓
+	 *    继承链：AnnotationConfigServletWebServerApplicationContext
+	 *         → ServletWebServerApplicationContext
+	 *         → GenericWebApplicationContext
+	 *         → GenericApplicationContext 【这里创建BeanFactory】
+	 *         → AbstractApplicationContext
+	 *         ↓
+	 * 5️⃣ 准备Context
+	 *    prepareContext() - 注册主配置类
+	 *         ↓
+	 * 6️⃣ 刷新Context 【最关键步骤】
+	 *    refreshContext(context) [第321行]
+	 *         ↓
+	 *    refresh(context) [第445行]
+	 *         ↓
+	 *    applicationContext.refresh() [第756行]
+	 *         ↓
+	 *    AbstractApplicationContext.refresh() 【Spring核心刷新方法】
+	 *         ↓
+	 *    obtainFreshBeanFactory() [第593行]
+	 *         ↓
+	 *    refreshBeanFactory() [第721行 - 抽象方法调用]
+	 *         ↓
+	 *    GenericApplicationContext.refreshBeanFactory() 【具体实现】
+	 *         - 只设置序列化ID
+	 *         - 不重新创建BeanFactory（已在构造函数中创建）
+	 *         ↓
+	 *    invokeBeanFactoryPostProcessors() 【加载Bean定义的核心步骤】
+	 *         ↓
+	 *    ConfigurationClassPostProcessor处理
+	 *         - 解析@SpringBootApplication注解
+	 *         - ComponentScan扫描所有@Component、@Service等
+	 *         - 注册所有Bean定义到BeanFactory
+	 *         ↓
+	 *    finishBeanFactoryInitialization()
+	 *         - 实例化所有非懒加载的单例Bean
+	 *         ↓
+	 * 7️⃣ 容器启动完成
+	 *    listeners.started(context)
+	 * </pre>
+	 *
 	 * @param args the application arguments (usually passed from a Java main method)
 	 * @return a running {@link ApplicationContext}
 	 */
@@ -311,15 +372,24 @@ public class SpringApplication {
 		configureHeadlessProperty();
 		SpringApplicationRunListeners listeners = getRunListeners(args);
 		listeners.starting(bootstrapContext, this.mainApplicationClass);
+
+
 		try {
 			ApplicationArguments applicationArguments = new DefaultApplicationArguments(args);
+
+			// 读取配置文件
 			ConfigurableEnvironment environment = prepareEnvironment(listeners, bootstrapContext, applicationArguments);
 			Banner printedBanner = printBanner(environment);
+
+
 			context = createApplicationContext();
 			context.setApplicationStartup(this.applicationStartup);
 			prepareContext(bootstrapContext, context, environment, listeners, applicationArguments, printedBanner);
 			refreshContext(context);
 			afterRefresh(context, applicationArguments);
+
+
+
 			Duration timeTakenToStarted = startup.started();
 			if (this.properties.isLogStartupInfo()) {
 				new StartupInfoLogger(this.mainApplicationClass, environment).logStarted(getApplicationLog(), startup);
@@ -347,18 +417,19 @@ public class SpringApplication {
 		return bootstrapContext;
 	}
 
-	private ConfigurableEnvironment prepareEnvironment(SpringApplicationRunListeners listeners,
-			DefaultBootstrapContext bootstrapContext, ApplicationArguments applicationArguments) {
+	private ConfigurableEnvironment prepareEnvironment(SpringApplicationRunListeners listeners, DefaultBootstrapContext bootstrapContext, ApplicationArguments applicationArguments) {
+
 		// Create and configure the environment
 		ConfigurableEnvironment environment = getOrCreateEnvironment();
 		configureEnvironment(environment, applicationArguments.getSourceArgs());
 		ConfigurationPropertySources.attach(environment);
 		listeners.environmentPrepared(bootstrapContext, environment);
+
 		ApplicationInfoPropertySource.moveToEnd(environment);
 		DefaultPropertiesPropertySource.moveToEnd(environment);
-		Assert.state(!environment.containsProperty("spring.main.environment-prefix"),
-				"Environment prefix cannot be set via properties.");
+		Assert.state(!environment.containsProperty("spring.main.environment-prefix"), "Environment prefix cannot be set via properties.");
 		bindToSpringApplication(environment);
+
 		if (!this.isCustomEnvironment) {
 			EnvironmentConverter environmentConverter = new EnvironmentConverter(getClassLoader());
 			environment = environmentConverter.convertEnvironmentIfNecessary(environment, deduceEnvironmentClass());
@@ -383,6 +454,7 @@ public class SpringApplication {
 		context.setEnvironment(environment);
 		postProcessApplicationContext(context);
 		addAotGeneratedInitializerIfNecessary(this.initializers);
+
 		ConfigurableListableBeanFactory beanFactory = context.getBeanFactory();
 		if (beanFactory instanceof AbstractAutowireCapableBeanFactory autowireCapableBeanFactory) {
 			autowireCapableBeanFactory.setAllowCircularReferences(this.properties.isAllowCircularReferences());
@@ -438,6 +510,36 @@ public class SpringApplication {
 		}
 	}
 
+	/**
+	 * 刷新ApplicationContext，触发Spring容器的核心初始化流程。
+	 *
+	 * <p><b>刷新流程说明：</b>
+	 * <pre>
+	 * 1. 注册关闭钩子（如果配置需要）
+	 *    shutdownHook.registerApplicationContext(context)
+	 *
+	 * 2. 调用refresh(context)方法
+	 *    → applicationContext.refresh()
+	 *    → 进入Spring容器的标准刷新流程
+	 *
+	 * 3. Spring容器刷新流程（AbstractApplicationContext.refresh()）：
+	 *    ├─ prepareRefresh() - 准备刷新
+	 *    ├─ obtainFreshBeanFactory() - 获取BeanFactory
+	 *    │  └─ refreshBeanFactory() - 【关键】调用GenericApplicationContext的实现
+	 *    │     - 只设置序列化ID，不重新创建BeanFactory
+	 *    ├─ prepareBeanFactory() - 准备BeanFactory
+	 *    ├─ invokeBeanFactoryPostProcessors() - 【核心】加载Bean定义
+	 *    │  └─ ConfigurationClassPostProcessor处理
+	 *    │     ├─ 解析@SpringBootApplication注解
+	 *    │     ├─ ComponentScan扫描所有组件
+	 *    │     └─ 注册Bean定义到BeanFactory
+	 *    ├─ registerBeanPostProcessors() - 注册Bean后置处理器
+	 *    ├─ finishBeanFactoryInitialization() - 实例化Bean
+	 *    └─ finishRefresh() - 完成刷新
+	 * </pre>
+	 *
+	 * @param context the application context to refresh
+	 */
 	private void refreshContext(ConfigurableApplicationContext context) {
 		if (this.properties.isRegisterShutdownHook()) {
 			shutdownHook.registerApplicationContext(context);
@@ -573,12 +675,41 @@ public class SpringApplication {
 	 * Strategy method used to create the {@link ApplicationContext}. By default this
 	 * method will respect any explicitly set application context class or factory before
 	 * falling back to a suitable default.
+	 *
+	 * <p><b>ApplicationContext创建流程：</b>
+	 * <pre>
+	 * 1. 调用ApplicationContextFactory.create(WebApplicationType)
+	 *    - 根据应用类型（SERVLET/REACTIVE/NONE）创建对应的ApplicationContext
+	 *
+	 * 2. 对于SERVLET类型（最常见，如您的Todo应用）：
+	 *    ServletWebServerApplicationContextFactory.create(WebApplicationType.SERVLET)
+	 *         ↓
+	 *    new AnnotationConfigServletWebServerApplicationContext()
+	 *
+	 * 3. 继承关系：
+	 *    AnnotationConfigServletWebServerApplicationContext
+	 *      → extends ServletWebServerApplicationContext
+	 *        → extends GenericWebApplicationContext
+	 *          → extends GenericApplicationContext 【关键！】
+	 *            → extends AbstractApplicationContext
+	 *
+	 * 4. BeanFactory创建时机：
+	 *    - GenericApplicationContext构造函数中创建DefaultListableBeanFactory
+	 *    - refresh()时不会重新创建，只设置序列化ID
+	 *    - 这与AbstractRefreshableApplicationContext不同（后者在refresh时创建）
+	 *
+	 * 5. 为什么选择GenericApplicationContext？
+	 *    ✅ 不需要多次刷新（SpringBoot应用启动后不需要重新加载BeanFactory）
+	 *    ✅ 支持编程式注册Bean（通过ConfigurationClassPostProcessor）
+	 *    ✅ 性能更好（BeanFactory在构造时就创建好，refresh()开销小）
+	 *    ✅ 适合注解驱动配置（@SpringBootApplication、@Component等）
+	 * </pre>
+	 *
 	 * @return the application context (not yet refreshed)
 	 * @see #setApplicationContextFactory(ApplicationContextFactory)
 	 */
 	protected ConfigurableApplicationContext createApplicationContext() {
-		ConfigurableApplicationContext context = this.applicationContextFactory
-			.create(this.properties.getWebApplicationType());
+		ConfigurableApplicationContext context = this.applicationContextFactory.create(this.properties.getWebApplicationType());
 		Assert.state(context != null, "ApplicationContextFactory created null context");
 		return context;
 	}
@@ -590,8 +721,7 @@ public class SpringApplication {
 	 */
 	protected void postProcessApplicationContext(ConfigurableApplicationContext context) {
 		if (this.beanNameGenerator != null) {
-			context.getBeanFactory()
-				.registerSingleton(AnnotationConfigUtils.CONFIGURATION_BEAN_NAME_GENERATOR, this.beanNameGenerator);
+			context.getBeanFactory().registerSingleton(AnnotationConfigUtils.CONFIGURATION_BEAN_NAME_GENERATOR, this.beanNameGenerator);
 		}
 		if (this.resourceLoader != null) {
 			if (context instanceof GenericApplicationContext genericApplicationContext) {
@@ -615,10 +745,8 @@ public class SpringApplication {
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	protected void applyInitializers(ConfigurableApplicationContext context) {
 		for (ApplicationContextInitializer initializer : getInitializers()) {
-			Class<?> requiredType = GenericTypeResolver.resolveTypeArgument(initializer.getClass(),
-					ApplicationContextInitializer.class);
-			Assert.state(requiredType != null,
-					() -> "No generic type found for initializr of type " + initializer.getClass());
+			Class<?> requiredType = GenericTypeResolver.resolveTypeArgument(initializer.getClass(), ApplicationContextInitializer.class);
+			Assert.state(requiredType != null, () -> "No generic type found for initializr of type " + initializer.getClass());
 			Assert.state(requiredType.isInstance(context), "Unable to call initializer");
 			initializer.initialize(context);
 		}
@@ -750,6 +878,29 @@ public class SpringApplication {
 
 	/**
 	 * Refresh the underlying {@link ApplicationContext}.
+	 *
+	 * <p><b>调用链路追踪：</b>
+	 * <pre>
+	 * refresh(applicationContext)
+	 *   ↓
+	 * applicationContext.refresh()
+	 *   ↓
+	 * AbstractApplicationContext.refresh() 【Spring Framework核心方法】
+	 *   ↓
+	 * obtainFreshBeanFactory() 【第593行】
+	 *   ↓
+	 * refreshBeanFactory() 【第721行 - 抽象方法调用】
+	 *   ↓
+	 * GenericApplicationContext.refreshBeanFactory() 【第296行 - 具体实现】
+	 *   - 设置序列化ID
+	 *   - 不重新创建BeanFactory（已在构造函数中创建）
+	 *   ↓
+	 * invokeBeanFactoryPostProcessors() 【第604行 - 加载Bean定义的核心】
+	 *   - ConfigurationClassPostProcessor处理配置类
+	 *   - ComponentScan扫描组件
+	 *   - 注册所有Bean定义
+	 * </pre>
+	 *
 	 * @param applicationContext the application context to refresh
 	 */
 	protected void refresh(ConfigurableApplicationContext applicationContext) {
