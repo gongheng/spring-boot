@@ -117,9 +117,10 @@ class SpringApplicationRunListeners {
 		doWithListeners(stepName, listenerAction, null);
 	}
 
-	private void doWithListeners(String stepName, Consumer<SpringApplicationRunListener> listenerAction,
-			@Nullable Consumer<StartupStep> stepAction) {
+	private void doWithListeners(String stepName, Consumer<SpringApplicationRunListener> listenerAction, @Nullable Consumer<StartupStep> stepAction) {
+
 		StartupStep step = this.applicationStartup.start(stepName);
+
 		this.listeners.forEach(listenerAction);
 		if (stepAction != null) {
 			stepAction.accept(step);
