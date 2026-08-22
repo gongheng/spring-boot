@@ -16,8 +16,10 @@
 
 package org.springframework.boot.build.bom.bomr.github;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -27,8 +29,8 @@ import java.util.function.Function;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.HttpClientErrorException.Forbidden;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
 
 /**
  * Standard implementation of {@link GitHubRepository}.
@@ -37,10 +39,10 @@ import org.springframework.web.client.RestTemplate;
  */
 final class StandardGitHubRepository implements GitHubRepository {
 
-	private final RestTemplate rest;
+	private final RestClient rest;
 
-	StandardGitHubRepository(RestTemplate restTemplate) {
-		this.rest = restTemplate;
+	StandardGitHubRepository(RestClient restClient) {
+		this.rest = restClient;
 	}
 
 	@Override
@@ -56,7 +58,11 @@ final class StandardGitHubRepository implements GitHubRepository {
 		}
 		requestBody.put("body", body);
 		try {
-			ResponseEntity<Map> response = this.rest.postForEntity("issues", requestBody, Map.class);
+			ResponseEntity<Map> response = this.rest.post()
+				.uri("issues")
+				.body(requestBody)
+				.retrieve()
+				.toEntity(Map.class);
 			// See gh-30304
 			sleep(Duration.ofSeconds(3));
 			return (Integer) response.getBody().get("number");
@@ -90,9 +96,22 @@ final class StandardGitHubRepository implements GitHubRepository {
 						Issue.State.of((String) issue.get("state"))));
 	}
 
+	@Override
+	@SuppressWarnings("rawtypes")
+	public String getContent(String path, String ref) {
+		Map body = this.rest.get().uri("contents/" + path + "?ref=" + ref).retrieve().body(Map.class);
+		return base64Decode((String) body.get("content"));
+
+	}
+
+	private String base64Decode(String encoded) {
+		return new String(Base64.getDecoder().decode(encoded.replace("\n", "").getBytes(StandardCharsets.UTF_8)),
+				StandardCharsets.UTF_8);
+	}
+
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private <T> List<T> get(String name, Function<Map<String, Object>, T> mapper) {
-		ResponseEntity<List> response = this.rest.getForEntity(name, List.class);
+		ResponseEntity<List> response = this.rest.get().uri(name).retrieve().toEntity(List.class);
 		return ((List<Map<String, Object>>) response.getBody()).stream().map(mapper).toList();
 	}
 

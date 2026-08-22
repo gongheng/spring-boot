@@ -1,7 +1,7 @@
 /*
  * Copyright 2012-present the original author or authors.
  *
- * Licensed under the Apache License, Version 2.0 (the License);
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -95,6 +95,7 @@ dependencies {
 	implementation(project(path: ":module:spring-boot-actuator"))
 	implementation(project(path: ":module:spring-boot-actuator-autoconfigure"))
 	implementation(project(path: ":module:spring-boot-amqp"))
+	implementation(project(path: ":module:spring-boot-amqp-rabbitmq"))
 	implementation(project(path: ":module:spring-boot-cache"))
 	implementation(project(path: ":module:spring-boot-cache-test"))
 	implementation(project(path: ":module:spring-boot-data-cassandra"))
@@ -130,6 +131,7 @@ dependencies {
 	implementation(project(path: ":module:spring-boot-micrometer-metrics"))
 	implementation(project(path: ":module:spring-boot-persistence"))
 	implementation(project(path: ":module:spring-boot-r2dbc"))
+	implementation(project(path: ":module:spring-boot-rabbitmq"))
 	implementation(project(path: ":module:spring-boot-restdocs"))
 	implementation(project(path: ":module:spring-boot-reactor-netty"))
 	implementation(project(path: ":module:spring-boot-restclient"))

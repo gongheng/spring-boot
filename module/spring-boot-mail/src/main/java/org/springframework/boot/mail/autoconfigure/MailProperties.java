@@ -18,7 +18,7 @@ package org.springframework.boot.mail.autoconfigure;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
@@ -71,7 +71,7 @@ public class MailProperties {
 	/**
 	 * Additional JavaMail Session properties.
 	 */
-	private final Map<String, String> properties = new HashMap<>();
+	private final Map<String, String> properties = new LinkedHashMap<>();
 
 	/**
 	 * Session JNDI name. When set, takes precedence over other Session settings.
@@ -156,6 +156,11 @@ public class MailProperties {
 		private boolean enabled;
 
 		/**
+		 * Whether to enable hostname verification.
+		 */
+		private boolean verifyHostname = true;
+
+		/**
 		 * SSL bundle name. If set, 'mail.(protocol).ssl.socketFactory' property is set to
 		 * an SSLSocketFactory obtained from the corresponding SSL bundle.
 		 * <p>
@@ -170,6 +175,14 @@ public class MailProperties {
 
 		public void setEnabled(boolean enabled) {
 			this.enabled = enabled;
+		}
+
+		public boolean isVerifyHostname() {
+			return this.verifyHostname;
+		}
+
+		public void setVerifyHostname(boolean verifyHostname) {
+			this.verifyHostname = verifyHostname;
 		}
 
 		public @Nullable String getBundle() {

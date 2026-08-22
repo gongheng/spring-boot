@@ -660,7 +660,7 @@ with the `key` listed in the following table:
 | javadoc:org.springframework.boot.mail.health.MailHealthIndicator[]
 | Checks that a mail server is up.
 
-| `mongo`
+| `mongodb`
 | javadoc:org.springframework.boot.mongodb.health.MongoHealthIndicator[]
 | Checks that a Mongo database is up.
 
@@ -673,7 +673,7 @@ with the `key` listed in the following table:
 | Always responds with `UP`.
 
 | `rabbit`
-| javadoc:org.springframework.boot.amqp.health.RabbitHealthIndicator[]
+| javadoc:org.springframework.boot.rabbitmq.health.RabbitHealthIndicator[]
 | Checks that a Rabbit server is up.
 
 | `redis`
@@ -825,7 +825,7 @@ When appropriate, Spring Boot auto-configures the following javadoc:org.springfr
 | javadoc:org.springframework.boot.data.elasticsearch.health.DataElasticsearchReactiveHealthIndicator[]
 | Checks that an Elasticsearch cluster is up.
 
-| `mongo`
+| `mongodb`
 | javadoc:org.springframework.boot.mongodb.health.MongoReactiveHealthIndicator[]
 | Checks that a Mongo database is up.
 

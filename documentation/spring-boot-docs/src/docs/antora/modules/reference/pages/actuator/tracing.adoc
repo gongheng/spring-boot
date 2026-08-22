@@ -97,9 +97,9 @@ Please read xref:reference:actuator/observability.adoc#actuator.observability.co
 [[actuator.micrometer-tracing.propagating-traces]]
 == Propagating Traces
 
-To automatically propagate traces over the network, use the auto-configured xref:io/rest-client.adoc#io.rest-client.resttemplate[`RestTemplateBuilder`], xref:io/rest-client.adoc#io.rest-client.restclient[`RestClient.Builder`] or xref:io/rest-client.adoc#io.rest-client.webclient[`WebClient.Builder`] to construct the client.
+To automatically propagate traces over the network, use the auto-configured xref:io/rest-client.adoc#io.rest-client.restclient[`RestClient.Builder`] or xref:io/rest-client.adoc#io.rest-client.webclient[`WebClient.Builder`] to construct the client.
 
-WARNING: If you create the javadoc:org.springframework.web.client.RestTemplate[], the javadoc:org.springframework.web.client.RestClient[] or the javadoc:org.springframework.web.reactive.function.client.WebClient[] without using the auto-configured builders, automatic trace propagation won't work!
+WARNING: If you create the javadoc:org.springframework.web.client.RestClient[] or the javadoc:org.springframework.web.reactive.function.client.WebClient[] without using the auto-configured builders, automatic trace propagation won't work!
 
 
 
@@ -122,24 +122,6 @@ Use the `management.opentelemetry.tracing.export.otlp.*` configuration propertie
 NOTE: If you need to apply advanced customizations to OTLP span exporters, consider registering javadoc:org.springframework.boot.micrometer.tracing.opentelemetry.autoconfigure.otlp.OtlpHttpSpanExporterBuilderCustomizer[] or javadoc:org.springframework.boot.micrometer.tracing.opentelemetry.autoconfigure.otlp.OtlpGrpcSpanExporterBuilderCustomizer[] beans.
 These will be invoked before the creation of the `OtlpHttpSpanExporter` or `OtlpGrpcSpanExporter`.
 The customizers take precedence over anything applied by the auto-configuration.
-
-
-
-[[actuator.micrometer-tracing.tracer-implementations.otel-zipkin]]
-=== OpenTelemetry With Zipkin
-
-WARNING: OpenTelemetry has https://opentelemetry.io/docs/specs/otel/trace/sdk_exporters/zipkin/[deprecated their Zipkin support].
-The auto-configuration for it will be removed in Spring Boot 4.2.
-Either switch to Brave or consider using https://github.com/openzipkin-contrib/zipkin-otel[the Zipkin OTel module] for ingesting OTLP directly.
-
-Tracing with OpenTelemetry and reporting to Zipkin requires the following dependencies:
-
-* `org.springframework.boot:spring-boot-micrometer-tracing-opentelemetry` - Spring Boot's support for Micrometer Tracing over OpenTelemetry.
-* `io.micrometer:micrometer-tracing-bridge-otel` - bridges the Micrometer Observation API to OpenTelemetry.
-* `org.springframework.boot:spring-boot-zipkin` - Spring Boot's support for Zipkin.
-* `io.opentelemetry:opentelemetry-exporter-zipkin` - OpenTelemetry exporter that reports traces to Zipkin.
-
-Use the `management.tracing.export.zipkin.*` configuration properties to configure reporting to Zipkin.
 
 
 

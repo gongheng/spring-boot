@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
 import kotlinx.serialization.json.Json;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
@@ -150,12 +151,22 @@ class CodecsAutoConfigurationTests {
 	@Test
 	void kotlinSerializationUsesUnrestrictedPredicateWhenNoOtherJsonConverterIsAvailable() {
 		FilteredClassLoader classLoader = new FilteredClassLoader(JsonMapper.class.getPackage().getName(),
-				ObjectMapper.class.getPackage().getName());
+				ObjectMapper.class.getPackage().getName(), Gson.class.getPackage().getName());
 		this.contextRunner.withClassLoader(classLoader)
 			.withUserConfiguration(KotlinxJsonConfiguration.class)
 			.run((context) -> {
 				KotlinSerializationJsonEncoder encoder = findEncoder(context, KotlinSerializationJsonEncoder.class);
 				assertThat(encoder.canEncode(ResolvableType.forClass(Map.class), MediaType.APPLICATION_JSON)).isTrue();
+			});
+	}
+
+	@Test
+	void userProvidedCustomizerCanOverrideKotlinxJsonCodecCustomizer() {
+		this.contextRunner.withUserConfiguration(KotlinxJsonConfiguration.class, CodecCustomizerConfiguration.class)
+			.run((context) -> {
+				List<CodecCustomizer> codecCustomizers = context.getBean(CodecCustomizers.class).codecCustomizers;
+				assertThat(codecCustomizers).hasSize(3);
+				assertThat(codecCustomizers.get(2)).isInstanceOf(TestCodecCustomizer.class);
 			});
 	}
 
@@ -168,7 +179,7 @@ class CodecsAutoConfigurationTests {
 			.filter((writer) -> writer instanceof EncoderHttpMessageWriter<?>)
 			.map((writer) -> (EncoderHttpMessageWriter<?>) writer)
 			.map(EncoderHttpMessageWriter::getEncoder)
-			.filter((encoder) -> encoderClass.isAssignableFrom(encoder.getClass()))
+			.filter(encoderClass::isInstance)
 			.findFirst()
 			.orElseThrow();
 	}

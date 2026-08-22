@@ -9,8 +9,6 @@
 	<module name="io.spring.javaformat.checkstyle.SpringChecks">
 		<property name="avoidStaticImportExcludes"
 			value="org.springframework.boot.autoconfigure.AutoConfigurationImportedCondition.importedAutoConfiguration" />
-	</module>
-	<module name="io.spring.javaformat.checkstyle.check.SpringHeaderCheck">
 		<property name="headerFile" value="${config_loc}/checkstyle-header.txt"/>
 	</module>
 	<module name="com.puppycrawl.tools.checkstyle.TreeWalker">
@@ -86,6 +84,18 @@
 			<property name="format" value="import org\.assertj\.core\.api\.Assertions;" />
 			<property name="message"
 				value="Please use static AssertJ imports." />
+			<property name="ignoreComments" value="true" />
+		</module>
+		<module name="com.puppycrawl.tools.checkstyle.checks.regexp.RegexpSinglelineJavaCheck">
+			<property name="maximum" value="0"/>
+			<property name="format" value="\.isAssignableFrom\(.+\.getClass\(\)\)" />
+			<property name="message" value="Please use type.isInstance(object) instead." />
+			<property name="ignoreComments" value="true" />
+		</module>
+		<module name="com.puppycrawl.tools.checkstyle.checks.regexp.RegexpSinglelineJavaCheck">
+			<property name="maximum" value="0"/>
+			<property name="format" value="\w+\.class\.isInstance\(.+\)" />
+			<property name="message" value="Please use object instanceof type instead." />
 			<property name="ignoreComments" value="true" />
 		</module>
 		<module name="io.spring.javaformat.checkstyle.check.SpringJavadocCheck">

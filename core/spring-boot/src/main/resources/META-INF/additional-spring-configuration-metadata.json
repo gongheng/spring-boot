@@ -807,7 +807,7 @@
         }
       ]
     },
- 	{
+    {
       "name": "logging.structured.json.stacktrace.printer",
       "values": [
         {
@@ -847,6 +847,14 @@
     },
     {
       "name": "spring.profiles.active",
+      "providers": [
+        {
+          "name": "spring-profile-name"
+        }
+      ]
+    },
+    {
+      "name": "spring.profiles.group",
       "providers": [
         {
           "name": "spring-profile-name"

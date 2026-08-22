@@ -87,6 +87,8 @@ public abstract class ArchitectureCheck extends DefaultTask {
 			.classFor(getAnnotationClasses().get(), ArchitectureCheckAnnotation.CONDITIONAL_ON_MISSING_BEAN))));
 		getRules().addAll(whenMainSources(() -> ArchitectureRules.configurationProperties(ArchitectureCheckAnnotation
 			.classFor(getAnnotationClasses().get(), ArchitectureCheckAnnotation.CONFIGURATION_PROPERTIES))));
+		getRules().addAll(whenMainSources(() -> ArchitectureRules.configurationProperties(ArchitectureCheckAnnotation
+			.classFor(getAnnotationClasses().get(), ArchitectureCheckAnnotation.CONFIGURATION_PROPERTIES_SOURCE))));
 		getRules().addAll(whenMainSources(
 				() -> ArchitectureRules.configurationPropertiesBinding(ArchitectureCheckAnnotation.classFor(
 						getAnnotationClasses().get(), ArchitectureCheckAnnotation.CONFIGURATION_PROPERTIES_BINDING))));
@@ -141,17 +143,18 @@ public abstract class ArchitectureCheck extends DefaultTask {
 
 	private void withCompileClasspath(Callable<?> callable) throws Exception {
 		ClassLoader previous = Thread.currentThread().getContextClassLoader();
-		try {
-			List<URL> urls = new ArrayList<>();
-			for (File file : getCompileClasspath().getFiles()) {
-				urls.add(file.toURI().toURL());
-			}
-			ClassLoader classLoader = new URLClassLoader(urls.toArray(new URL[0]), getClass().getClassLoader());
-			Thread.currentThread().setContextClassLoader(classLoader);
-			callable.call();
+		List<URL> urls = new ArrayList<>();
+		for (File file : getCompileClasspath().getFiles()) {
+			urls.add(file.toURI().toURL());
 		}
-		finally {
-			Thread.currentThread().setContextClassLoader(previous);
+		try (URLClassLoader classLoader = new URLClassLoader(urls.toArray(new URL[0]), getClass().getClassLoader())) {
+			Thread.currentThread().setContextClassLoader(classLoader);
+			try {
+				callable.call();
+			}
+			finally {
+				Thread.currentThread().setContextClassLoader(previous);
+			}
 		}
 	}
 

@@ -136,7 +136,6 @@ public abstract class DocumentConfigurationProperties extends DefaultTask {
 		config.accept("spring.cassandra");
 		config.accept("spring.elasticsearch");
 		config.accept("spring.h2");
-		config.accept("spring.influx");
 		config.accept("spring.ldap");
 		config.accept("spring.mongodb");
 		config.accept("spring.neo4j");
@@ -171,6 +170,7 @@ public abstract class DocumentConfigurationProperties extends DefaultTask {
 
 	private void integrationPrefixes(Config prefix) {
 		prefix.accept("spring.activemq");
+		prefix.accept("spring.amqp");
 		prefix.accept("spring.artemis");
 		prefix.accept("spring.batch");
 		prefix.accept("spring.integration");

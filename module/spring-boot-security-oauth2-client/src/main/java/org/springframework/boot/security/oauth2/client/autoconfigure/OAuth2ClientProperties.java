@@ -16,7 +16,7 @@
 
 package org.springframework.boot.security.oauth2.client.autoconfigure;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -42,12 +42,12 @@ public class OAuth2ClientProperties implements InitializingBean {
 	/**
 	 * OAuth provider details.
 	 */
-	private final Map<String, Provider> provider = new HashMap<>();
+	private final Map<String, Provider> provider = new LinkedHashMap<>();
 
 	/**
 	 * OAuth client registrations.
 	 */
-	private final Map<String, Registration> registration = new HashMap<>();
+	private final Map<String, Registration> registration = new LinkedHashMap<>();
 
 	public Map<String, Provider> getProvider() {
 		return this.provider;
@@ -79,7 +79,7 @@ public class OAuth2ClientProperties implements InitializingBean {
 
 		/**
 		 * Reference to the OAuth 2.0 provider to use. May reference one of the common
-		 * providers (google, github, facebook, okta) or the ID of a custom provider
+		 * providers (google, github, facebook, x, okta) or the ID of a custom provider
 		 * configured using 'spring.security.oauth2.client.provider.&lt;id&gt;.*'
 		 * properties. When not set, the ID of this registration is used to identify the
 		 * provider.

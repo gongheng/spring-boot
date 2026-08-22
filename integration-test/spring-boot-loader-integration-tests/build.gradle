@@ -1,7 +1,7 @@
 /*
  * Copyright 2012-present the original author or authors.
  *
- * Licensed under the Apache License, Version 2.0 (the License);
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -82,6 +82,17 @@ tasks.register("buildSignedJarRsaApp", GradleBuild) {
 	tasks  = ["build"]
 }
 
+tasks.register("syncWarAppSource", org.springframework.boot.build.SyncAppSource) {
+	sourceDirectory = file("spring-boot-loader-tests-war")
+	destinationDirectory = file(layout.buildDirectory.dir("spring-boot-loader-tests-war"))
+}
+
+tasks.register("buildWarApp", GradleBuild) {
+	dependsOn syncWarAppSource, syncMavenRepository
+	dir = layout.buildDirectory.dir("spring-boot-loader-tests-war")
+	startParameter.buildCacheEnabled = false
+	tasks = ["build"]
+}
 
 tasks.register("downloadJdk", Download) {
 	def destFolder = new File(project.gradle.gradleUserHomeDir, "caches/springboot/downloads/jdk/oracle")
@@ -105,5 +116,5 @@ tasks.named("processDockerTestResources").configure {
 }
 
 tasks.named("dockerTest").configure {
-	dependsOn buildApp, buildSignedJarApp, buildSignedJarRsaApp
+	dependsOn buildApp, buildWarApp, buildSignedJarApp, buildSignedJarRsaApp
 }

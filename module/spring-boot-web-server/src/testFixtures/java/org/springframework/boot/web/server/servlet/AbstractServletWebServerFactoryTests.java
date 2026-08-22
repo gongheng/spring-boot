@@ -899,6 +899,20 @@ public abstract class AbstractServletWebServerFactoryTests {
 				(header) -> assertThat(header).isEqualTo("test=test"));
 	}
 
+	@Test
+	void sessionCookieNotPartitionedAttribute() throws Exception {
+		ConfigurableServletWebServerFactory factory = getFactory();
+		factory.getSettings().getSession().getCookie().setPartitioned(false);
+		factory.addInitializers(new ServletRegistrationBean<>(new CookieServlet(false), "/"));
+		this.webServer = factory.getWebServer();
+		this.webServer.start();
+		ClientHttpResponse clientResponse = getClientResponse(getLocalUrl("/"));
+		List<String> setCookieHeaders = clientResponse.getHeaders().get("Set-Cookie");
+		assertThat(setCookieHeaders).satisfiesExactlyInAnyOrder(
+				(header) -> assertThat(header).startsWith("JSESSIONID=").doesNotContain("; Partitioned"),
+				(header) -> assertThat(header).isEqualTo("test=test"));
+	}
+
 	@ParameterizedTest
 	@EnumSource(mode = EnumSource.Mode.EXCLUDE, names = "OMITTED")
 	void sessionCookieSameSiteAttributeCanBeConfiguredAndOnlyAffectsSessionCookies(SameSite sameSite) throws Exception {
@@ -1226,7 +1240,7 @@ public abstract class AbstractServletWebServerFactoryTests {
 		assertThat(sessionCookieConfig.isHttpOnly()).isTrue();
 		assertThat(sessionCookieConfig.isSecure()).isTrue();
 		assertThat(sessionCookieConfig.getMaxAge()).isEqualTo(60);
-		assertThat(sessionCookieConfig.getAttribute("Partitioned")).isEqualTo("");
+		assertThat(sessionCookieConfig.getAttribute("Partitioned")).isNull();
 	}
 
 	@Test
@@ -1600,6 +1614,14 @@ public abstract class AbstractServletWebServerFactoryTests {
 		this.webServer = factory.getWebServer(new ServletRegistrationBean<>(new ExampleServlet(true, false), "/hello"));
 		this.webServer.start();
 		assertThat(getResponse(getLocalUrl("/hello"), "X-Forwarded-For:140.211.11.130"))
+			.contains("remoteaddr=140.211.11.130");
+	}
+
+	protected void assertRfcForwardHeaderIsUsed(ServletWebServerFactory factory)
+			throws IOException, URISyntaxException {
+		this.webServer = factory.getWebServer(new ServletRegistrationBean<>(new ExampleServlet(true, false), "/hello"));
+		this.webServer.start();
+		assertThat(getResponse(getLocalUrl("/hello"), "Forwarded:for=140.211.11.130"))
 			.contains("remoteaddr=140.211.11.130");
 	}
 

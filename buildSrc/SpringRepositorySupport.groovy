@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -104,6 +104,7 @@ class SpringRepositoriesExtension {
 	}
 
 	private void addRepositories(version, action) {
+		addReleaseTrainRepositoryIfNecessary("spring-release-train", action)
 		addCommercialRepositoryIfNecessary("release", false, "/spring-enterprise-maven-prod-local", action)
 		if (version.endsWith("-SNAPSHOT")) {
 			addCommercialRepositoryIfNecessary("snapshot", true, "/spring-enterprise-maven-dev-local", action)
@@ -130,6 +131,21 @@ class SpringRepositoriesExtension {
 			}
 			action(maven)
 		})
+	}
+
+	private void addReleaseTrainRepositoryIfNecessary(id, action) {
+		def url = this.environment.apply("RELEASE_TRAIN_MAVEN_REPOSITORY_URL")
+		if (url != null) {
+			def username = this.environment.apply("RELEASE_TRAIN_MAVEN_REPOSITORY_USERNAME")
+			def password = this.environment.apply("RELEASE_TRAIN_MAVEN_REPOSITORY_PASSWORD")
+			addRepository(id, false, url, { maven ->
+				maven.credentials { credentials ->
+					credentials.setUsername(username)
+					credentials.setPassword(password)
+				}
+				action(maven)
+			})
+		}
 	}
 
 	private void addRepository(name, snapshot, url, action) {

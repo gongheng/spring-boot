@@ -18,7 +18,6 @@ package smoketest.session;
 
 import java.net.URI;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -26,24 +25,22 @@ import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
 import org.springframework.boot.http.client.HttpClientSettings;
 import org.springframework.boot.http.client.HttpRedirects;
-import org.springframework.boot.restclient.RestTemplateBuilder;
-import org.springframework.boot.resttestclient.TestRestTemplate;
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.ClientHttpRequestFactory;
+import org.springframework.test.web.servlet.client.EntityExchangeResult;
+import org.springframework.test.web.servlet.client.RestTestClient;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -56,17 +53,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
 		properties = { "server.servlet.session.timeout:2", "debug=true" })
-@AutoConfigureTestRestTemplate
+@AutoConfigureRestTestClient
 class SampleSessionJdbcApplicationTests {
 
 	private static final HttpClientSettings DONT_FOLLOW_REDIRECTS = HttpClientSettings.defaults()
 		.withRedirects(HttpRedirects.DONT_FOLLOW);
 
 	@Autowired
-	private RestTemplateBuilder restTemplateBuilder;
-
-	@Autowired
-	private TestRestTemplate restTemplate;
+	private RestTestClient restTestClient;
 
 	@LocalServerPort
 	@SuppressWarnings("NullAway.Init")
@@ -74,27 +68,39 @@ class SampleSessionJdbcApplicationTests {
 
 	private static final URI ROOT_URI = URI.create("/");
 
+	/**
+	 * A client that follows redirects, used to emulate a browser session.
+	 */
+	private RestTestClient browserClient() {
+		ClientHttpRequestFactory requestFactory = ClientHttpRequestFactoryBuilder.detect()
+			.build(HttpClientSettings.defaults());
+		return RestTestClient.bindToServer(requestFactory).baseUrl("http://localhost:" + this.port).build();
+	}
+
 	@Test
 	void sessionExpiry() throws Exception {
 		String cookie = performLogin();
-		String sessionId1 = performRequest(ROOT_URI, cookie).getBody();
-		String sessionId2 = performRequest(ROOT_URI, cookie).getBody();
+		String sessionId1 = performRequest(ROOT_URI, cookie).getResponseBody();
+		String sessionId2 = performRequest(ROOT_URI, cookie).getResponseBody();
 		assertThat(sessionId1).isEqualTo(sessionId2);
 		Thread.sleep(2100);
-		String loginPage = performRequest(ROOT_URI, cookie).getBody();
+		String loginPage = performRequest(ROOT_URI, cookie).getResponseBody();
 		assertThat(loginPage).containsIgnoringCase("login");
 	}
 
 	private @Nullable String performLogin() {
-		RestTemplate restTemplate = this.restTemplateBuilder.clientSettings(DONT_FOLLOW_REDIRECTS).build();
-		HttpHeaders headers = new HttpHeaders();
-		headers.setAccept(Collections.singletonList(MediaType.TEXT_HTML));
-		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+		ClientHttpRequestFactory requestFactory = ClientHttpRequestFactoryBuilder.detect().build(DONT_FOLLOW_REDIRECTS);
+		RestClient restClient = RestClient.builder().requestFactory(requestFactory).build();
 		MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
 		form.set("username", "user");
 		form.set("password", "password");
-		ResponseEntity<String> entity = restTemplate.exchange("http://localhost:" + this.port + "/login",
-				HttpMethod.POST, new HttpEntity<>(form, headers), String.class);
+		ResponseEntity<String> entity = restClient.post()
+			.uri("http://localhost:" + this.port + "/login")
+			.accept(MediaType.TEXT_HTML)
+			.contentType(MediaType.APPLICATION_FORM_URLENCODED)
+			.body(form)
+			.retrieve()
+			.toEntity(String.class);
 		return entity.getHeaders().getFirst("Set-Cookie");
 	}
 
@@ -102,19 +108,20 @@ class SampleSessionJdbcApplicationTests {
 	@SuppressWarnings("unchecked")
 	void sessionsEndpointShouldReturnUserSession() {
 		performLogin();
-		ResponseEntity<Map<String, Object>> response = getSessions();
-		assertThat(response).isNotNull();
-		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-		Map<String, Object> body = response.getBody();
+		Map<String, Object> body = getSessions().getResponseBody();
 		assertThat(body).isNotNull();
 		List<Map<String, Object>> sessions = (List<Map<String, Object>>) body.get("sessions");
 		assertThat(sessions).hasSize(1);
 	}
 
-	private ResponseEntity<String> performRequest(URI uri, @Nullable String cookie) {
-		HttpHeaders headers = getHeaders(cookie);
-		RequestEntity<Object> request = new RequestEntity<>(headers, HttpMethod.GET, uri);
-		return this.restTemplate.exchange(request, String.class);
+	private EntityExchangeResult<String> performRequest(URI uri, @Nullable String cookie) {
+		return browserClient().get()
+			.uri(uri)
+			.accept(MediaType.TEXT_HTML)
+			.headers((headers) -> headers.addAll(getHeaders(cookie)))
+			.exchangeSuccessfully()
+			.expectBody(String.class)
+			.returnResult();
 	}
 
 	private HttpHeaders getHeaders(@Nullable String cookie) {
@@ -132,13 +139,15 @@ class SampleSessionJdbcApplicationTests {
 		return "Basic " + Base64.getEncoder().encodeToString("user:password".getBytes());
 	}
 
-	private ResponseEntity<Map<String, Object>> getSessions() {
-		HttpHeaders headers = getHeaders(null);
-		RequestEntity<Object> request = new RequestEntity<>(headers, HttpMethod.GET,
-				URI.create("/actuator/sessions?username=user"));
+	private EntityExchangeResult<Map<String, Object>> getSessions() {
 		ParameterizedTypeReference<Map<String, Object>> stringObjectMap = new ParameterizedTypeReference<>() {
 		};
-		return this.restTemplate.exchange(request, stringObjectMap);
+		return this.restTestClient.get()
+			.uri("/actuator/sessions?username=user")
+			.headers((headers) -> headers.addAll(getHeaders(null)))
+			.exchangeSuccessfully()
+			.expectBody(stringObjectMap)
+			.returnResult();
 	}
 
 }

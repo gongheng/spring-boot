@@ -86,15 +86,6 @@ public final class CloudFoundryReactiveActuatorAutoConfiguration {
 	@Bean
 	@ConditionalOnMissingBean
 	@ConditionalOnAvailableEndpoint
-	@ConditionalOnBean({ HealthEndpoint.class, ReactiveHealthEndpointWebExtension.class })
-	CloudFoundryReactiveHealthEndpointWebExtension cloudFoundryReactiveHealthEndpointWebExtension(
-			ReactiveHealthEndpointWebExtension reactiveHealthEndpointWebExtension) {
-		return new CloudFoundryReactiveHealthEndpointWebExtension(reactiveHealthEndpointWebExtension);
-	}
-
-	@Bean
-	@ConditionalOnMissingBean
-	@ConditionalOnAvailableEndpoint
 	@ConditionalOnBean({ InfoEndpoint.class, GitProperties.class })
 	CloudFoundryInfoEndpointWebExtension cloudFoundryInfoEndpointWebExtension(GitProperties properties,
 			ObjectProvider<InfoContributor> infoContributors) {
@@ -109,14 +100,14 @@ public final class CloudFoundryReactiveActuatorAutoConfiguration {
 	@SuppressWarnings("removal")
 	CloudFoundryWebFluxEndpointHandlerMapping cloudFoundryWebFluxEndpointHandlerMapping(
 			ParameterValueMapper parameterMapper, EndpointMediaTypes endpointMediaTypes,
-			WebClient.Builder webClientBuilder,
+			ObjectProvider<WebClient.Builder> webClientBuilder,
 			org.springframework.boot.actuate.endpoint.web.annotation.ControllerEndpointsSupplier controllerEndpointsSupplier,
 			ApplicationContext applicationContext) {
 		CloudFoundryWebEndpointDiscoverer endpointDiscoverer = new CloudFoundryWebEndpointDiscoverer(applicationContext,
 				parameterMapper, endpointMediaTypes, null, Collections.emptyList(), Collections.emptyList(),
 				Collections.emptyList());
-		SecurityInterceptor securityInterceptor = getSecurityInterceptor(webClientBuilder,
-				applicationContext.getEnvironment());
+		SecurityInterceptor securityInterceptor = getSecurityInterceptor(
+				webClientBuilder.getIfAvailable(WebClient::builder), applicationContext.getEnvironment());
 		Collection<ExposableWebEndpoint> webEndpoints = endpointDiscoverer.getEndpoints();
 		List<ExposableEndpoint<?>> allEndpoints = new ArrayList<>();
 		allEndpoints.addAll(webEndpoints);
@@ -149,6 +140,21 @@ public final class CloudFoundryReactiveActuatorAutoConfiguration {
 		corsConfiguration
 			.setAllowedHeaders(Arrays.asList(HttpHeaders.AUTHORIZATION, "X-Cf-App-Instance", HttpHeaders.CONTENT_TYPE));
 		return corsConfiguration;
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	@ConditionalOnClass(HealthEndpoint.class)
+	static class HealthConfiguration {
+
+		@Bean
+		@ConditionalOnMissingBean
+		@ConditionalOnAvailableEndpoint
+		@ConditionalOnBean({ HealthEndpoint.class, ReactiveHealthEndpointWebExtension.class })
+		CloudFoundryReactiveHealthEndpointWebExtension cloudFoundryReactiveHealthEndpointWebExtension(
+				ReactiveHealthEndpointWebExtension reactiveHealthEndpointWebExtension) {
+			return new CloudFoundryReactiveHealthEndpointWebExtension(reactiveHealthEndpointWebExtension);
+		}
+
 	}
 
 	@Configuration(proxyBeanMethods = false)
